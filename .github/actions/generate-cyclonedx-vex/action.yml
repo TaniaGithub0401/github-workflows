@@ -1,0 +1,36 @@
+name: Generate CycloneDX VEX
+description: Generate a CycloneDX VEX document from Dependency-Track findings
+
+inputs:
+  findings:
+    description: Path to Dependency-Track findings JSON
+    required: true
+
+  output:
+    description: Path for the generated CycloneDX VEX document
+    required: true
+
+  project-uuid:
+    description: Dependency-Track project UUID
+    required: true
+
+  project-name:
+    description: Dependency-Track project name
+    required: true
+
+  project-version:
+    description: Dependency-Track project version
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        python "$GITHUB_ACTION_PATH/generate-cyclonedx-vex.py" \
+          --findings "${{ inputs.findings }}" \
+          --output "${{ inputs.output }}" \
+          --project-uuid "${{ inputs.project-uuid }}" \
+          --project-name "${{ inputs.project-name }}" \
+          --project-version "${{ inputs.project-version }}"
+          
