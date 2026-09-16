@@ -212,17 +212,15 @@ runs:
         node-version: '24'
 
     - name: Start CSAF validator
-      if: steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
-        npx --yes @secvisogram/csaf-validator-service@2.0.31 \
+        npx --yes @secvisogram/csaf-validator-service \
           > /tmp/csaf-validator.log 2>&1 &
 
         echo $! > /tmp/csaf-validator.pid
 
         for attempt in {1..30}; do
-          if curl -sSf http://localhost:8082/api/v1/tests > /dev/null; then
-            echo "CSAF validator started successfully."
+          if curl -sSf http://localhost:8082/docs > /dev/null; then
             exit 0
           fi
 
@@ -230,7 +228,6 @@ runs:
         done
 
         echo "CSAF validator did not start."
-        echo "Validator startup log:"
         cat /tmp/csaf-validator.log
         exit 1
 
