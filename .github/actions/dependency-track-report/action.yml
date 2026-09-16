@@ -170,7 +170,9 @@ runs:
           echo "Dependency-Track VEX upload failed with HTTP $http_code."
           exit 1
         fi
+    
     - name: Generate CSAF VEX
+      id: generate-csaf
       shell: bash
       env:
         DTRACK_URL: ${{ inputs.dependency-track-url }}
@@ -181,9 +183,19 @@ runs:
         CSAF_PUBLISHER_NAME: mundialis
         CSAF_PUBLISHER_NAMESPACE: https://mundialis.de
       run: |
+        finding_count=$(jq 'length' /tmp/dtrack-findings.json)
+
+        if [ "$finding_count" -eq 0 ]; then
+          echo "No findings available for CSAF generation."
+          echo "has-csaf=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
         python "$GITHUB_ACTION_PATH/generate_csaf.py"
-    
+        echo "has-csaf=true" >> "$GITHUB_OUTPUT"
+
     - name: Verify CSAF VEX generation
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
         if [ ! -s /tmp/csaf-vex.json ]; then
@@ -192,3 +204,57 @@ runs:
         fi
 
         echo "CSAF VEX generated successfully."
+
+    - name: Set up Node.js for CSAF validator
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+
+    - name: Start CSAF validator
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
+      shell: bash
+      run: |
+        npx --yes @secvisogram/csaf-validator-service@2.0.31 \
+          > /tmp/csaf-validator.log 2>&1 &
+
+        echo $! > /tmp/csaf-validator.pid
+
+        for attempt in {1..30}; do
+          if curl -sSf http://localhost:8082/api/v1/tests > /dev/null; then
+            exit 0
+          fi
+
+          sleep 1
+        done
+
+        echo "CSAF validator did not start."
+        exit 1
+
+    - name: Validate CSAF VEX
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
+      shell: bash
+      run: |
+        jq -n \
+          --slurpfile doc /tmp/csaf-vex.json \
+          '{
+            document: $doc[0],
+            tests: [
+              {
+                name: "full",
+                type: "preset"
+              }
+            ]
+          }' \
+        | curl -sS -X POST \
+            "http://localhost:8082/api/v1/validate" \
+            -H "Content-Type: application/json" \
+            --data-binary @- \
+            -o /tmp/csaf-validation-result.json
+
+        if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
+          echo "CSAF VEX validation failed."
+          exit 1
+        fi
+
+        echo "CSAF VEX validation succeeded."
