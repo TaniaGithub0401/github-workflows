@@ -170,3 +170,25 @@ runs:
           echo "Dependency-Track VEX upload failed with HTTP $http_code."
           exit 1
         fi
+    - name: Generate CSAF VEX
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+        DTRACK_FINDINGS_FILE: /tmp/dtrack-findings.json
+        SBOM_PATH: ${{ inputs.sbom-file }}
+        CSAF_OUTPUT: /tmp/csaf-vex.json
+        CSAF_PUBLISHER_NAME: mundialis
+        CSAF_PUBLISHER_NAMESPACE: https://mundialis.de
+      run: |
+        python "$GITHUB_ACTION_PATH/generate_csaf.py"
+    
+    - name: Verify CSAF VEX generation
+      shell: bash
+      run: |
+        if [ ! -s /tmp/csaf-vex.json ]; then
+          echo "CSAF VEX generation failed."
+          exit 1
+        fi
+
+        echo "CSAF VEX generated successfully."
