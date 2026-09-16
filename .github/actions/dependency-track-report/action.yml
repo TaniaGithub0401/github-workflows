@@ -222,6 +222,7 @@ runs:
 
         for attempt in {1..30}; do
           if curl -sSf http://localhost:8082/api/v1/tests > /dev/null; then
+            echo "CSAF validator started successfully."
             exit 0
           fi
 
@@ -229,6 +230,8 @@ runs:
         done
 
         echo "CSAF validator did not start."
+        echo "Validator startup log:"
+        cat /tmp/csaf-validator.log
         exit 1
 
     - name: Validate CSAF VEX
