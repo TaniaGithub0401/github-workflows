@@ -384,15 +384,14 @@ def build_vulnerability_entry(finding, analysis):
 
     if not state or state == "NOT_SET":
         print(
-            f'Skipping {vulnerability["vulnId"]}: '
-            "no analysis state has been assigned."
+            "Skipping finding: no analysis state has been assigned."
         )
         return None
 
     if state not in STATE_MAP:
         print(
-            f'Skipping {vulnerability["vulnId"]}: '
-            f"unsupported analysis state {state}."
+            f"Skipping finding: unsupported analysis state {state}."
+
         )
         return None
 

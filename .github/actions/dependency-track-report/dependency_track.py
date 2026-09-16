@@ -3,7 +3,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
-
+import time
 
 DTRACK_URL = os.environ.get(
     "DTRACK_URL",
@@ -40,25 +40,31 @@ def get_analysis(finding):
         },
     )
 
-    try:
-        with urllib.request.urlopen(
-            request,
-            timeout=15,
-        ) as response:
-            return json.load(response)
+    max_attempts = 5
 
-    except urllib.error.HTTPError as error:
-        print(
-            f"Warning: Dependency-Track returned HTTP "
-            f"{error.code} for "
-            f'{vulnerability.get("vulnId", "unknown")}.'
-        )
+    for attempt in range(1, max_attempts + 1):
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=15,
+            ) as response:
+                return json.load(response)
 
-    except urllib.error.URLError as error:
-        print(
-            f"Warning: Could not reach Dependency-Track for "
-            f'{vulnerability.get("vulnId", "unknown")}: '
-            f"{error.reason}"
-        )
+        except urllib.error.HTTPError as error:
+            if error.code == 404 and attempt < max_attempts:
+                time.sleep(2)
+                continue
+
+            print(
+                "Warning: Dependency-Track analysis "
+                f"request failed with HTTP {error.code}."
+            )
+            return {}
+
+        except urllib.error.URLError:
+            print(
+                "Warning: Could not reach Dependency-Track."
+            )
+            return {}
 
     return {}
