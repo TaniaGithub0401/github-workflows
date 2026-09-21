@@ -237,7 +237,13 @@ runs:
         http_code=$(jq -n \
           --slurpfile doc /tmp/csaf-vex.json \
           '{
-            document: $doc[0]
+            document: $doc[0],
+            tests: [
+              {
+                name: "full",
+                type: "preset"
+              }
+            ]
           }' \
         | curl -sS -X POST \
             "http://localhost:8082/api/v1/validate" \
@@ -248,10 +254,15 @@ runs:
 
         if [ "$http_code" != "200" ]; then
           echo "CSAF validator request failed with HTTP $http_code."
-
           echo "Validator error:"
           jq -r '.message // .error // "Unknown validator error"' \
             /tmp/csaf-validation-result.json
-
           exit 1
         fi
+
+        if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
+          echo "CSAF VEX validation failed."
+          exit 1
+        fi
+
+        echo "CSAF VEX validation succeeded."

@@ -211,7 +211,7 @@ def build_tracking(previous_document, current_content, document_id, now):
         try:
             revision_number = str(int(previous_version) + 1)
         except ValueError:
-            revision_number = previous_version
+            revision_number = str(previous_version)
 
         revision_history = list(
             previous_tracking.get("revision_history", [])
@@ -228,7 +228,7 @@ def build_tracking(previous_document, current_content, document_id, now):
         current_release_date = now
 
     else:
-        revision_number = previous_version
+        revision_number = str(previous_version)
         revision_history = previous_tracking.get(
             "revision_history",
             [],
@@ -240,7 +240,7 @@ def build_tracking(previous_document, current_content, document_id, now):
 
     return {
         "current_release_date": current_release_date,
-        "id": document_id,
+        "id": str(document_id),
         "initial_release_date": initial_release_date,
         "revision_history": revision_history,
         "status": "draft",
