@@ -234,32 +234,25 @@ runs:
     - name: Validate CSAF VEX
       shell: bash
       run: |
-        jq -n \
+        http_code=$(jq -n \
           --slurpfile doc /tmp/csaf-vex.json \
           '{
-            document: $doc[0],
-            tests: [
-              {
-                name: "full",
-                type: "preset"
-              }
-            ]
+            document: $doc[0]
           }' \
         | curl -sS -X POST \
             "http://localhost:8082/api/v1/validate" \
             -H "Content-Type: application/json" \
             --data-binary @- \
-            -o /tmp/csaf-validation-result.json
+            -o /tmp/csaf-validation-result.json \
+            -w "%{http_code}")
+
+        if [ "$http_code" != "200" ]; then
+          echo "CSAF validator request failed with HTTP $http_code."
+          exit 1
+        fi
 
         if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
           echo "CSAF VEX validation failed."
-
-          echo "Validator response structure:"
-          jq -r '
-            to_entries[]
-            | "\(.key): \(.value | type)"
-          ' /tmp/csaf-validation-result.json
-
           exit 1
         fi
 
