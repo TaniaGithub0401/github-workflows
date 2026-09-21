@@ -269,46 +269,9 @@ runs:
           exit 1
         fi
 
-        if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" = "true" ]; then
-          echo "CSAF VEX validation succeeded."
-          exit 0
-        fi
-
-        error_count=$(jq '
-          [
-            .tests[]?
-            | .errors[]?
-          ]
-          | length
-        ' /tmp/csaf-validation-result.json)
-
-        non_reference_error_count=$(jq '
-          [
-            .tests[]?
-            | .errors[]?
-            | select((.instancePath // "") != "/document/references")
-          ]
-          | length
-        ' /tmp/csaf-validation-result.json)
-
-        echo "CSAF VEX validation reported $error_count error(s)."
-
-        if [ "$non_reference_error_count" -gt 0 ]; then
-          echo "CSAF VEX contains validation errors unrelated to document references."
-
-          jq -r '
-            .tests[]?
-            | .errors[]?
-            | select((.instancePath // "") != "/document/references")
-            | [
-                (.instancePath // ""),
-                (.message // "")
-              ]
-            | @tsv
-          ' /tmp/csaf-validation-result.json
-
+        if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
+          echo "CSAF VEX validation failed."
           exit 1
         fi
 
-        echo "CSAF VEX passed all validation checks except document references."
-        echo "The publication reference still needs to be defined."
+        echo "CSAF VEX validation succeeded."
