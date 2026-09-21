@@ -279,11 +279,15 @@ runs:
             | (.name // .test // .id // "unknown test")
           ' /tmp/csaf-validation-result.json
 
-          echo "Validation error paths:"
+          echo "Validation errors:"
           jq -r '
             .tests[]?
             | .errors[]?
-            | .instancePath // empty
+            | [
+                (.instancePath // ""),
+                (.message // "")
+              ]
+            | @tsv
           ' /tmp/csaf-validation-result.json
 
           exit 1
