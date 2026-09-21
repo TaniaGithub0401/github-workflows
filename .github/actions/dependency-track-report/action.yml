@@ -271,6 +271,21 @@ runs:
 
         if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
           echo "CSAF VEX validation failed."
+
+          echo "Failed validation tests:"
+          jq -r '
+            .tests[]?
+            | select(.isValid == false)
+            | (.name // .test // .id // "unknown test")
+          ' /tmp/csaf-validation-result.json
+
+          echo "Validation error paths:"
+          jq -r '
+            .tests[]?
+            | .errors[]?
+            | .instancePath // empty
+          ' /tmp/csaf-validation-result.json
+
           exit 1
         fi
 
