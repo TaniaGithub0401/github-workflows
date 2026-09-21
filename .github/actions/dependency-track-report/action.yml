@@ -259,7 +259,7 @@ runs:
             -w "%{http_code}")
 
         if [ "$http_code" != "200" ]; then
-          echo "CSAF validator request failed with HTTP $http_code."
+          echo "CSAF Validator service request failed with HTTP code $http_code."
           echo "Validator error:"
           jq -r '.message // .error // "Unknown validator error"' \
             /tmp/csaf-validation-result.json
