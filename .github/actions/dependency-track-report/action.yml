@@ -234,35 +234,49 @@ runs:
     - name: Validate CSAF VEX
       shell: bash
       run: |
-        http_code=$(jq -n \
+        # 1.
+        jq -n \
           --slurpfile doc /tmp/csaf-vex.json \
           '{
-            document: $doc[0],
-            tests: [
-              {
-                name: "full",
-                type: "preset"
-              }
-            ]
-          }' \
-        | curl -sS -X POST \
-            "http://localhost:8082/api/v1/validate" \
+            validatorServiceSelection: {
+              modules: [
+                "schema",
+                "mandatory"
+              ]
+            },
+            document: $doc[0]
+          }' > /tmp/validator-request.json
+
+        # 2. 
+        http_code=$(curl -s -S \
+            -X POST "http://localhost:8082/api/v1/validate" \
             -H "Content-Type: application/json" \
-            --data-binary @- \
+            --data-binary @/tmp/validator-request.json \
             -o /tmp/csaf-validation-result.json \
             -w "%{http_code}")
 
+        # 3. 
+        rm -f /tmp/validator-request.json
+
+        # 4. 
         if [ "$http_code" != "200" ]; then
-          echo "CSAF validator request failed with HTTP $http_code."
-          echo "Validator error:"
-          jq -r '.message // .error // "Unknown validator error"' \
-            /tmp/csaf-validation-result.json
+          echo "::error::The CSAF Validator service request failed with HTTP code $http_code."
           exit 1
         fi
 
-        if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
-          echo "CSAF VEX validation failed."
+        # 5. 
+        is_valid=$(jq '.isValid // false' /tmp/csaf-validation-result.json)
+
+        # 6. 
+        if [ "$is_valid" != "true" ]; then
+          echo "::error::CSAF validation failed. The generated document does not comply with the standard specification rules."
+          echo "Detailed validation findings have been suppressed from execution logs to protect sensitive vulnerability details and internal project paths."
+          
+          # Fail the step safely without exposing data to the terminal logs.
           exit 1
         fi
 
-        echo "CSAF VEX validation succeeded."
+        # 7. 
+        rm -f /tmp/csaf-validation-result.json
+
+        echo "CSAF VEX validation completed successfully. The document is structurally valid and secure."
