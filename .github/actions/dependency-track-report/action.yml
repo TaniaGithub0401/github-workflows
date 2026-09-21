@@ -186,13 +186,20 @@ runs:
         finding_count=$(jq 'length' /tmp/dtrack-findings.json)
 
         if [ "$finding_count" -eq 0 ]; then
-          echo "No findings available for CSAF generation."
+          echo "No findings were reported by Dependency-Track. CSAF VEX generation is not required."
           echo "has-csaf=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
         python "$GITHUB_ACTION_PATH/generate_csaf.py"
-        echo "has-csaf=true" >> "$GITHUB_OUTPUT"
+
+        if [ -s /tmp/csaf-vex.json ]; then
+          echo "has-csaf=true" >> "$GITHUB_OUTPUT"
+          echo "CSAF VEX generated successfully."
+        else
+          echo "has-csaf=false" >> "$GITHUB_OUTPUT"
+          echo "Dependency-Track reported findings, but none had an analysis state that could be included in the CSAF VEX."
+        fi
 
     - name: Verify CSAF VEX generation
       if: steps.generate-csaf.outputs.has-csaf == 'true'
@@ -212,6 +219,7 @@ runs:
         node-version: '24'
 
     - name: Install Hunspell for CSAF validator
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
         sudo apt-get update
@@ -221,6 +229,7 @@ runs:
         sudo ln -sf /usr/share/hunspell/en_US.dic /usr/share/hunspell/en.dic
 
     - name: Start CSAF validator
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
         npx --yes @secvisogram/csaf-validator-service \
@@ -241,6 +250,7 @@ runs:
         exit 1
 
     - name: Validate CSAF VEX
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
         http_code=$(jq -n \
