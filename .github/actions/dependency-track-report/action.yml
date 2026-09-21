@@ -1,5 +1,5 @@
 name: Dependency-Track Report
-description: Upload an SBOM to Dependency-Track, generate CycloneDX VEX, and apply it
+description: Upload an SBOM to Dependency-Track, manage CycloneDX VEX, and generate and validate CSAF VEX
 
 inputs:
   sbom-file:
@@ -201,20 +201,9 @@ runs:
           echo "Dependency-Track reported findings, but none had an analysis state that could be included in the CSAF VEX."
         fi
 
-    - name: Verify CSAF VEX generation
-      if: steps.generate-csaf.outputs.has-csaf == 'true'
-      shell: bash
-      run: |
-        if [ ! -s /tmp/csaf-vex.json ]; then
-          echo "CSAF VEX generation failed."
-          exit 1
-        fi
-
-        echo "CSAF VEX generated successfully."
-
     - name: Set up Node.js for CSAF validator
       if: steps.generate-csaf.outputs.has-csaf == 'true'
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v7
       with:
         node-version: '24'
 
@@ -238,7 +227,7 @@ runs:
         echo $! > /tmp/csaf-validator.pid
 
         for attempt in {1..30}; do
-          if curl -sSf http://localhost:8082/docs > /dev/null; then
+          if curl -sf http://localhost:8082/docs > /dev/null 2>&1; then
             exit 0
           fi
 

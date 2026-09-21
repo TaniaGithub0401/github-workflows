@@ -1,9 +1,10 @@
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import time
+
 
 DTRACK_URL = os.environ.get(
     "DTRACK_URL",

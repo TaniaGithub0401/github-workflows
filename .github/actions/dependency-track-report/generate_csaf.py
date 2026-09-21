@@ -463,7 +463,9 @@ def main():
             valid_findings.append(finding)
 
     if not vulnerabilities:
-        raise SystemExit("No analyzed findings found.")
+        OUTPUT.unlink(missing_ok=True)
+        print("No analyzed findings available for CSAF generation.")
+        return
 
     first = valid_findings[0]
     project_name = first["component"]["projectName"]
