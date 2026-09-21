@@ -217,6 +217,9 @@ runs:
         sudo apt-get update
         sudo apt-get install -y hunspell hunspell-en-us
 
+        sudo ln -sf /usr/share/hunspell/en_US.aff /usr/share/hunspell/en.aff
+        sudo ln -sf /usr/share/hunspell/en_US.dic /usr/share/hunspell/en.dic
+
     - name: Start CSAF validator
       shell: bash
       run: |
