@@ -101,42 +101,41 @@ def build_document_content(
     sbom_sha256,
     vulnerabilities,
 ):
-    references = []
+    document = {
+        "category": "csaf_vex",
+        "csaf_version": "2.0",
+        "distribution": {
+            "tlp": {
+                "label": "WHITE"
+            }
+        },
+        "lang": "en",
+        "notes": [
+            {
+                "category": "description",
+                "title": "Description",
+                "text": f"VEX document for {project_name}.",
+            }
+        ],
+        "publisher": {
+            "category": "vendor",
+            "name": CSAF_PUBLISHER_NAME,
+            "namespace": CSAF_PUBLISHER_NAMESPACE,
+        },
+        "title": f"VEX for {project_name}",
+    }
 
     if CSAF_SELF_URL:
-        references.append(
+        document["references"] = [
             {
                 "category": "self",
                 "summary": "Canonical URL for this CSAF advisory",
                 "url": CSAF_SELF_URL,
             }
-        )
+        ]
 
     return {
-        "document": {
-            "category": "csaf_vex",
-            "csaf_version": "2.0",
-            "distribution": {
-                "tlp": {
-                    "label": "WHITE"
-                }
-            },
-            "lang": "en",
-            "notes": [
-                {
-                    "category": "description",
-                    "title": "Description",
-                    "text": f"VEX document for {project_name}.",
-                }
-            ],
-            "publisher": {
-                "category": "vendor",
-                "name": CSAF_PUBLISHER_NAME,
-                "namespace": CSAF_PUBLISHER_NAMESPACE,
-            },
-            "references": references,
-            "title": f"VEX for {project_name}",
-        },
+        "document": document,
         "product_tree": build_product_tree(
             project_name,
             project_version,
@@ -146,7 +145,6 @@ def build_document_content(
         ),
         "vulnerabilities": vulnerabilities,
     }
-
 
 def sha256_file(path):
     sha256 = hashlib.sha256()
