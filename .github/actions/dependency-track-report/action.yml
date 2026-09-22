@@ -296,14 +296,23 @@ runs:
         inputs.email-notification == 'true' &&
         steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+        DTRACK_PROJECT_UUID: ${{ env.DTRACK_PROJECT_UUID }}
+        DTRACK_FINDINGS_FILE: /tmp/dtrack-findings.json
       run: |
-        if [ -f /tmp/csaf-vex.json ]; then
-          echo "send-email=true" >> "$GITHUB_OUTPUT"
-          echo "Email notification required."
-        else
-          echo "send-email=false" >> "$GITHUB_OUTPUT"
-          echo "No email notification required."
-        fi
+        status=$(python3 "$GITHUB_ACTION_PATH/dependency_track.py")
+
+        send_email=$(echo "$status" | jq -r '.send_email')
+        new_count=$(echo "$status" | jq -r '.new_count')
+        state_change_count=$(echo "$status" | jq -r '.state_change_count')
+        latest_event_timestamp=$(echo "$status" | jq -r '.latest_event_timestamp // empty')
+
+        echo "send-email=$send_email" >> "$GITHUB_OUTPUT"
+        echo "new-count=$new_count" >> "$GITHUB_OUTPUT"
+        echo "state-change-count=$state_change_count" >> "$GITHUB_OUTPUT"
+        echo "latest-event-timestamp=$latest_event_timestamp" >> "$GITHUB_OUTPUT"
 
     - name: Send CSAF email notification
       if: steps.email-notification.outputs.send-email == 'true'
