@@ -26,6 +26,21 @@ inputs:
     description: CycloneDX component type for the project
     required: true
 
+  email-notification:
+    description: "Enable CSAF email notifications"
+    required: false
+    default: "false"
+
+  email-to:
+    description: "Recipient of CSAF email notifications"
+    required: false
+    default: ""
+
+  smtp-password:
+    description: "SMTP app password"
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -274,10 +289,12 @@ runs:
         fi
 
         echo "CSAF VEX validation succeeded."
-        
+
     - name: Check if email notification is required
       id: email-notification
-      if: steps.generate-csaf.outputs.has-csaf == 'true'
+      if: >
+        inputs.email-notification == 'true' &&
+        steps.generate-csaf.outputs.has-csaf == 'true'
       shell: bash
       run: |
         if [ -f /tmp/csaf-vex.json ]; then
@@ -287,3 +304,18 @@ runs:
           echo "send-email=false" >> "$GITHUB_OUTPUT"
           echo "No email notification required."
         fi
+
+    - name: Send CSAF email notification
+      if: steps.email-notification.outputs.send-email == 'true'
+      shell: bash
+      env:
+        SMTP_SERVER: smtp.mailbox.org
+        SMTP_PORT: "587"
+        SMTP_USERNAME: cybersecurity@mundialis.de
+        SMTP_PASSWORD: ${{ inputs.smtp-password }}
+        EMAIL_FROM: cybersecurity@mundialis.de
+        EMAIL_TO: ${{ inputs.email-to }}
+        PROJECT_NAME: ${{ inputs.project-name }}
+        CSAF_FILE: /tmp/csaf-vex.json
+      run: |
+        python3 "${{ github.action_path }}/csaf_notification.py"
