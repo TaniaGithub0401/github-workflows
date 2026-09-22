@@ -242,7 +242,18 @@ For Python projects, a virtual environment is created from either
 directly because this provides valid SARIF artifact locations for GitHub Code
 Scanning.
 
-The vulnerability results are uploaded to GitHub Code Scanning at category grype-python/grype-docker.
+The vulnerability results are uploaded to GitHub Code Scanning using the
+categories `grype-docker` or `grype-python`.
+
+Optionally, the generated SBOM can also be uploaded to Dependency-Track.
+When Dependency-Track integration is enabled, new findings without an existing
+analysis state are documented as `IN_TRIAGE` using CycloneDX VEX. Existing
+manual or previous analysis states are preserved.
+
+Based on the Dependency-Track analysis states, the workflow also generates a
+CSAF 2.0 VEX document. The generated CSAF document is validated automatically.
+If no findings are reported, or no findings contain an analysis state that can
+be included in the CSAF document, CSAF generation and validation are skipped.
 
 You can use it e.g. like this:
 
@@ -270,15 +281,25 @@ jobs:
       # requirements: requirements.txt
       # pyproject: pyproject.toml
       # additional-packages: "libgdal-dev gdal-bin build-essential"
+
+
+      fail-build: false
+
+      dependency-track: true
+      dependency-track-url: https://dependency-track.example.com
+      dependency-track-project-name: example-project
+      dependency-track-project-version: latest
+
+    secrets:
+      dependency-track-api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
 ```
 
 Provide exactly one of the following inputs:
 
 - `dockerfile`: Path to the Dockerfile.
-- `requirements`: Path to the requirements.txt file.
-- `pyproject`: Path to the pyproject.toml file.
+- `requirements`: Path to the `requirements.txt` file.
+- `pyproject`: Path to the `pyproject.toml` file.
 
-If none exists, an empty requirements.txt needs to be created.
 
 The calling job requires the following permissions:
 
@@ -287,12 +308,22 @@ The calling job requires the following permissions:
 
 Optional inputs:
 - `fetch_depth`: Number of commits to fetch during checkout. Use `0` to fetch the full history and tags. Default: `1`.
-- `fail-build`: Set to `true` if the workflow should fail when vulnerabilities above the severity
-cutoff are found.  Default: `false`.
-- `additional-packages`: a list with additional packages can be installed e.g.
-for gdal see example. In the requirements.txt the gdal version not not be set
-to a fixed version, because the system version of GDAL is used.
+- `fail-build`: Set to `true` if the workflow should fail when vulnerabilities above the severity cutoff are found. Default: `false`.
+- `additional-packages`: Space-separated list of additional system packages
+  to install before creating a Python environment.
+- `dependency-track`: Enable Dependency-Track integration. Default: `false`.
+- `dependency-track-url`: Dependency-Track base URL. Required when `dependency-track` is enabled.
+- `dependency-track-project-name`: Project name used in Dependency-Track. Required when
+  `dependency-track` is enabled.
+- `dependency-track-project-version`: Project version used in Dependency-Track. Default: `latest`.
+
+When Dependency-Track integration is enabled, the secret `dependency-track-api-key` must also
+be provided by the calling workflow.
+
 The generated Docker or Python SBOM is uploaded as a workflow artifact.
+
+The generated CSAF VEX document is currently generated and validated within the
+workflow and is not uploaded as a workflow artifact.
 
 The vulnerability results are available under **Security and quality** → **Code scanning**.
 
