@@ -274,3 +274,16 @@ runs:
         fi
 
         echo "CSAF VEX validation succeeded."
+        
+    - name: Check if email notification is required
+      id: email-notification
+      if: steps.generate-csaf.outputs.has-csaf == 'true'
+      shell: bash
+      run: |
+        if [ -f /tmp/csaf-vex.json ]; then
+          echo "send-email=true" >> "$GITHUB_OUTPUT"
+          echo "Email notification required."
+        else
+          echo "send-email=false" >> "$GITHUB_OUTPUT"
+          echo "No email notification required."
+        fi
