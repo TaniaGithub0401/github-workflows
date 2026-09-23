@@ -1,0 +1,172 @@
+name: Dependency-Track Report
+description: Upload an SBOM to Dependency-Track, generate CycloneDX VEX, and apply it
+
+inputs:
+  sbom-file:
+    description: Path to the CycloneDX SBOM file
+    required: true
+
+  dependency-track-url:
+    description: Dependency-Track base URL
+    required: true
+
+  api-key:
+    description: Dependency-Track API key
+    required: true
+
+  project-name:
+    description: Dependency-Track project name
+    required: true
+
+  project-version:
+    description: Dependency-Track project version
+    required: true
+
+  project-type:
+    description: CycloneDX component type for the project
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Upload SBOM to Dependency-Track
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+        DTRACK_PROJECT_NAME: ${{ inputs.project-name }}
+        DTRACK_PROJECT_VERSION: ${{ inputs.project-version }}
+        SBOM_FILE: ${{ inputs.sbom-file }}
+      run: |
+        http_code=$(curl -sS \
+          -o /tmp/dtrack-bom-response.json \
+          -w "%{http_code}" \
+          -X POST \
+          -H "X-Api-Key: $DTRACK_API_KEY" \
+          -F "autoCreate=true" \
+          -F "projectName=$DTRACK_PROJECT_NAME" \
+          -F "projectVersion=$DTRACK_PROJECT_VERSION" \
+          -F "bom=@$SBOM_FILE" \
+          "${DTRACK_URL%/}/api/v1/bom")
+
+        if [ "$http_code" != "200" ]; then
+          echo "Dependency-Track BOM upload failed with HTTP $http_code."
+          exit 1
+        fi
+
+        processing_token=$(jq -r '.token // empty' /tmp/dtrack-bom-response.json)
+
+        if [ -z "$processing_token" ]; then
+          echo "Dependency-Track did not return a BOM processing token."
+          exit 1
+        fi
+
+        echo "DTRACK_BOM_TOKEN=$processing_token" >> "$GITHUB_ENV"
+
+    - name: Get Dependency-Track project UUID
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+        DTRACK_PROJECT_NAME: ${{ inputs.project-name }}
+        DTRACK_PROJECT_VERSION: ${{ inputs.project-version }}
+      run: |
+        project_uuid=$(curl -sS \
+          -H "X-Api-Key: $DTRACK_API_KEY" \
+          --get \
+          --data-urlencode "name=$DTRACK_PROJECT_NAME" \
+          --data-urlencode "version=$DTRACK_PROJECT_VERSION" \
+          "${DTRACK_URL%/}/api/v1/project/lookup" \
+          | jq -r '.uuid // empty')
+
+        if [ -z "$project_uuid" ]; then
+          echo "Dependency-Track project could not be found."
+          exit 1
+        fi
+
+        echo "DTRACK_PROJECT_UUID=$project_uuid" >> "$GITHUB_ENV"
+
+    - name: Wait for Dependency-Track analysis
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+      run: |
+        max_attempts=30
+        attempt=1
+
+        while [ "$attempt" -le "$max_attempts" ]; do
+          processing=$(curl -sS \
+            -H "X-Api-Key: $DTRACK_API_KEY" \
+            "${DTRACK_URL%/}/api/v1/event/token/$DTRACK_BOM_TOKEN" \
+            | jq -r '.processing // false')
+
+          if [ "$processing" = "false" ]; then
+            break
+          fi
+
+          sleep 10
+          attempt=$((attempt + 1))
+        done
+
+        if [ "$processing" != "false" ]; then
+          echo "Dependency-Track analysis did not complete within the expected time."
+          exit 1
+        fi
+
+    - name: Download Dependency-Track findings
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+      run: |
+        http_code=$(curl -sS \
+          -o /tmp/dtrack-findings.json \
+          -w "%{http_code}" \
+          -H "X-Api-Key: $DTRACK_API_KEY" \
+          "${DTRACK_URL%/}/api/v1/finding/project/$DTRACK_PROJECT_UUID")
+
+        if [ "$http_code" != "200" ]; then
+          echo "Failed to retrieve findings from Dependency-Track."
+          exit 1
+        fi
+
+    - name: Generate CycloneDX VEX
+      id: generate-vex
+      shell: bash
+      run: |
+        python "$GITHUB_ACTION_PATH/generate-cyclonedx-vex.py" \
+          --findings /tmp/dtrack-findings.json \
+          --output /tmp/dtrack-vex.json \
+          --project-uuid "$DTRACK_PROJECT_UUID" \
+          --project-name "${{ inputs.project-name }}" \
+          --project-version "${{ inputs.project-version }}" \
+          --project-type "${{ inputs.project-type }}"
+
+        if [ -f /tmp/dtrack-vex.json ]; then
+          echo "has-vex=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "has-vex=false" >> "$GITHUB_OUTPUT"
+          echo "No findings require a new VEX analysis."
+        fi
+
+    - name: Upload CycloneDX VEX to Dependency-Track
+      if: steps.generate-vex.outputs.has-vex == 'true'
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+      run: |
+        http_code=$(curl -sS \
+          -o /tmp/dtrack-vex-response.json \
+          -w "%{http_code}" \
+          -X POST \
+          -H "X-Api-Key: $DTRACK_API_KEY" \
+          -F "project=$DTRACK_PROJECT_UUID" \
+          -F "vex=@/tmp/dtrack-vex.json" \
+          "${DTRACK_URL%/}/api/v1/vex")
+
+        if [ "$http_code" != "200" ]; then
+          echo "Dependency-Track VEX upload failed with HTTP $http_code."
+          exit 1
+        fi
