@@ -326,9 +326,11 @@ runs:
         EMAIL_TO: ${{ inputs.email-to }}
         PROJECT_NAME: ${{ inputs.project-name }}
         CSAF_FILE: /tmp/csaf-vex.json
+        NEW_COUNT: ${{ steps.email-notification.outputs.new-count }}
+        STATE_CHANGE_COUNT: ${{ steps.email-notification.outputs.state-change-count }}
       run: |
         python3 "${{ github.action_path }}/csaf_notification.py"
-        
+
     - name: Update CSAF notification timestamp
       if: steps.email-notification.outputs.send-email == 'true'
       shell: bash

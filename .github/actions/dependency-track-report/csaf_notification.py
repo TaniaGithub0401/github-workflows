@@ -18,7 +18,10 @@ def main():
     smtp_username = get_required_env("SMTP_USERNAME")
     smtp_password = get_required_env("SMTP_PASSWORD")
     project_name = os.environ.get("PROJECT_NAME", "Unknown project")
-
+    new_count = int(os.environ.get("NEW_COUNT", "0"))
+    state_change_count = int(
+        os.environ.get("STATE_CHANGE_COUNT", "0")
+    )
     email_from = get_required_env("EMAIL_FROM")
     email_to = get_required_env("EMAIL_TO")
 
@@ -32,13 +35,37 @@ def main():
     message = EmailMessage()
     message["From"] = email_from
     message["To"] = email_to
-    message["Subject"] = f"[{project_name}] CSAF vulnerability report"
 
-    message.set_content(
-        "A new or updated CSAF vulnerability report was generated.\n\n"
-        "The CSAF report is attached to this email."
+    if new_count > 0 and state_change_count > 0:
+        subject = f"[{project_name}] Vulnerability report updated"
+    elif new_count > 0:
+        subject = f"[{project_name}] New vulnerabilities detected"
+    else:
+        subject = f"[{project_name}] Vulnerability status updated"
+
+    message["Subject"] = subject
+
+    body_lines = []
+
+    if new_count > 0:
+        body_lines.append(
+            f"{new_count} new vulnerabilit"
+            f"{'y was' if new_count == 1 else 'ies were'} "
+            f"detected for {project_name}."
+        )
+
+    if state_change_count > 0:
+        body_lines.append(
+            f"{state_change_count} vulnerability analysis "
+            f"{'state was' if state_change_count == 1 else 'states were'} "
+            "updated."
+        )
+    body_lines.append("")
+    body_lines.append(
+        "The updated CSAF vulnerability report is attached."
     )
 
+    message.set_content("\n".join(body_lines))
     message.add_attachment(
         csaf_file.read_bytes(),
         maintype="application",
