@@ -21,6 +21,14 @@ DTRACK_FINDINGS_FILE = os.environ.get(
 )
 
 DTRACK_PROJECT_UUID = os.environ.get("DTRACK_PROJECT_UUID")
+NOTIFICATION_ACTION = os.environ.get(
+    "NOTIFICATION_ACTION",
+    "status",
+)
+
+LATEST_EVENT_TIMESTAMP = os.environ.get(
+    "LATEST_EVENT_TIMESTAMP"
+)
 
 def validate_config():
     if not DTRACK_API_KEY:
@@ -310,12 +318,36 @@ if __name__ == "__main__":
     if not DTRACK_PROJECT_UUID:
         raise SystemExit("DTRACK_PROJECT_UUID is not set")
 
-    with open(DTRACK_FINDINGS_FILE) as file:
-        findings = json.load(file)
+    if NOTIFICATION_ACTION == "status":
+        with open(DTRACK_FINDINGS_FILE) as file:
+            findings = json.load(file)
 
-    status = get_notification_status(
-        DTRACK_PROJECT_UUID,
-        findings,
-    )
+        status = get_notification_status(
+            DTRACK_PROJECT_UUID,
+            findings,
+        )
 
-    print(json.dumps(status))
+        print(json.dumps(status))
+
+    elif NOTIFICATION_ACTION == "update":
+        if not LATEST_EVENT_TIMESTAMP:
+            raise SystemExit(
+                "LATEST_EVENT_TIMESTAMP is not set"
+            )
+
+        updated = set_last_notification_time(
+            DTRACK_PROJECT_UUID,
+            int(LATEST_EVENT_TIMESTAMP),
+        )
+
+        if not updated:
+            raise SystemExit(
+                "Could not update the notification timestamp."
+            )
+
+        print("CSAF notification timestamp updated.")
+
+    else:
+        raise SystemExit(
+            f"Unknown NOTIFICATION_ACTION: {NOTIFICATION_ACTION}"
+        )

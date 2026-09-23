@@ -328,3 +328,15 @@ runs:
         CSAF_FILE: /tmp/csaf-vex.json
       run: |
         python3 "${{ github.action_path }}/csaf_notification.py"
+        
+    - name: Update CSAF notification timestamp
+      if: steps.email-notification.outputs.send-email == 'true'
+      shell: bash
+      env:
+        DTRACK_URL: ${{ inputs.dependency-track-url }}
+        DTRACK_API_KEY: ${{ inputs.api-key }}
+        DTRACK_PROJECT_UUID: ${{ env.DTRACK_PROJECT_UUID }}
+        NOTIFICATION_ACTION: update
+        LATEST_EVENT_TIMESTAMP: ${{ steps.email-notification.outputs.latest-event-timestamp }}
+      run: |
+        python3 "$GITHUB_ACTION_PATH/dependency_track.py"
