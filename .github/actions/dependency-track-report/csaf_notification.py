@@ -56,8 +56,9 @@ def main():
 
     if state_change_count > 0:
         body_lines.append(
-            f"{state_change_count} vulnerability analysis "
-            f"{'state was' if state_change_count == 1 else 'states were'} "
+            f"The analysis {'state' if state_change_count == 1 else 'states'} "
+            f"of {state_change_count} "
+            f"{'vulnerability was' if state_change_count == 1 else 'vulnerabilities were'} "
             "updated."
         )
     body_lines.append("")
