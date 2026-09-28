@@ -15,6 +15,12 @@ DTRACK_URL = os.environ.get(
 DTRACK_API_KEY = os.environ.get("DTRACK_API_KEY")
 NOTIFICATION_PROPERTY_GROUP = "mundialis"
 NOTIFICATION_PROPERTY_NAME = "last-csaf-notification-time"
+ANALYSIS_COMMENT_PREFIX = "Analysis: "
+ANALYSIS_TRANSITION_SEPARATOR = " → "
+INITIAL_ANALYSIS_STATE = "NOT_SET"
+TRIAGE_ANALYSIS_STATE = "IN_TRIAGE"
+CYCLONEDX_VEX_COMMENTER = "CycloneDX VEX"
+
 DTRACK_FINDINGS_FILE = os.environ.get(
     "DTRACK_FINDINGS_FILE",
     "/tmp/dtrack-findings.json",
@@ -72,19 +78,15 @@ def get_analysis(finding):
                 time.sleep(2)
                 continue
 
-            print(
-                "Warning: Dependency-Track analysis "
-                f"request failed with HTTP {error.code}."
-            )
-            return {}
+            raise SystemExit(
+                "Dependency-Track analysis request failed "
+                f"with HTTP {error.code}."
+            ) from error
 
-        except urllib.error.URLError:
-            print(
-                "Warning: Could not reach Dependency-Track."
-            )
-            return {}
-
-    return {}
+        except urllib.error.URLError as error:
+            raise SystemExit(
+                "Could not reach Dependency-Track."
+            ) from error
 
 
 def get_project_properties(project_uuid):
@@ -102,14 +104,15 @@ def get_project_properties(project_uuid):
         with urllib.request.urlopen(request, timeout=15) as response:
             return json.load(response)
     except urllib.error.HTTPError as error:
-        print(
-            "Warning: Dependency-Track project properties "
-            f"request failed with HTTP {error.code}."
-        )
-        return []
-    except urllib.error.URLError:
-        print("Warning: Could not reach Dependency-Track.")
-        return []
+        raise SystemExit(
+            "Dependency-Track project properties request failed "
+            f"with HTTP {error.code}."
+        ) from error
+
+    except urllib.error.URLError as error:
+        raise SystemExit(
+            "Could not reach Dependency-Track."
+        ) from error
 
 
 def get_last_notification_time(project_uuid):
@@ -132,20 +135,11 @@ def get_last_notification_time(project_uuid):
     return None
 
 
-def set_last_notification_time(project_uuid, timestamp_ms):
-    properties = get_project_properties(project_uuid)
-
-    property_exists = any(
-        prop.get("groupName") == NOTIFICATION_PROPERTY_GROUP
-        and prop.get("propertyName") == NOTIFICATION_PROPERTY_NAME
-        for prop in properties
-    )
-
-    timestamp = datetime.fromtimestamp(
-        timestamp_ms / 1000,
-        tz=timezone.utc,
-    ).isoformat().replace("+00:00", "Z")
-
+def set_notification_property(
+    project_uuid,
+    timestamp,
+    property_exists,
+):
     payload = json.dumps(
         {
             "groupName": NOTIFICATION_PROPERTY_GROUP,
@@ -170,16 +164,65 @@ def set_last_notification_time(project_uuid, timestamp_ms):
 
     try:
         with urllib.request.urlopen(request, timeout=15):
-            return True
+            pass
     except urllib.error.HTTPError as error:
-        print(
-            "Warning: Dependency-Track notification timestamp "
-            f"update failed with HTTP {error.code}."
-        )
+        raise SystemExit(
+            "Dependency-Track notification property update failed "
+            f"with HTTP {error.code}."
+        ) from error
+    except urllib.error.URLError as error:
+        raise SystemExit(
+            "Could not reach Dependency-Track."
+        ) from error
+    
+
+def set_last_notification_time(project_uuid, timestamp_ms):
+    properties = get_project_properties(project_uuid)
+
+    property_exists = any(
+        prop.get("groupName") == NOTIFICATION_PROPERTY_GROUP
+        and prop.get("propertyName") == NOTIFICATION_PROPERTY_NAME
+        for prop in properties
+    )
+
+    timestamp = datetime.fromtimestamp(
+        timestamp_ms / 1000,
+        tz=timezone.utc,
+    ).isoformat().replace("+00:00", "Z")
+
+    set_notification_property(
+        project_uuid,
+        timestamp,
+        property_exists,
+    )
+
+
+def initialize_notification_baseline(project_uuid):
+    properties = get_project_properties(project_uuid)
+
+    property_exists = any(
+        prop.get("groupName") == NOTIFICATION_PROPERTY_GROUP
+        and prop.get("propertyName") == NOTIFICATION_PROPERTY_NAME
+        for prop in properties
+    )
+
+    if property_exists:
         return False
-    except urllib.error.URLError:
-        print("Warning: Could not reach Dependency-Track.")
-        return False
+
+    current_time = (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+    set_notification_property(
+        project_uuid,
+        current_time,
+        property_exists=False,
+    )
+
+    return True
 
 
 def get_notification_events(findings, since_time):
@@ -195,7 +238,7 @@ def get_notification_events(findings, since_time):
             if not timestamp_ms:
                 continue
 
-            if not comment.startswith("Analysis: "):
+            if not comment.startswith(ANALYSIS_COMMENT_PREFIX):
                 continue
 
             event_time = datetime.fromtimestamp(
@@ -206,17 +249,22 @@ def get_notification_events(findings, since_time):
             if since_time and event_time <= since_time:
                 continue
 
-            transition = comment.removeprefix("Analysis: ")
+            transition = comment.removeprefix(
+                ANALYSIS_COMMENT_PREFIX
+            )
 
-            if " → " not in transition:
+            if ANALYSIS_TRANSITION_SEPARATOR not in transition:
                 continue
 
-            previous_state, current_state = transition.split(" → ", 1)
+            previous_state, current_state = transition.split(
+                ANALYSIS_TRANSITION_SEPARATOR,
+                1,
+            )
 
             if (
-                previous_state == "NOT_SET"
-                and current_state == "IN_TRIAGE"
-                and entry.get("commenter") == "CycloneDX VEX"
+                previous_state == INITIAL_ANALYSIS_STATE
+                and current_state == TRIAGE_ANALYSIS_STATE
+                and entry.get("commenter") == CYCLONEDX_VEX_COMMENTER
             ):
                 event_type = "new"
             else:
@@ -234,42 +282,12 @@ def get_notification_events(findings, since_time):
     return events
 
 
-def initialize_notification_time(project_uuid, findings):
-    latest_timestamp = None
-
-    for finding in findings:
-        analysis = get_analysis(finding)
-
-        for entry in analysis.get("analysisComments", []):
-            timestamp = entry.get("timestamp")
-
-            if not timestamp:
-                continue
-
-            if latest_timestamp is None or timestamp > latest_timestamp:
-                latest_timestamp = timestamp
-
-    if latest_timestamp is None:
-        return False
-
-    return set_last_notification_time(
-        project_uuid,
-        latest_timestamp,
-    )
-
-
 def get_notification_status(project_uuid, findings):
     last_notification_time = get_last_notification_time(project_uuid)
 
     if last_notification_time is None:
-        initialized = initialize_notification_time(
-            project_uuid,
-            findings,
-        )
-
         return {
             "send_email": False,
-            "baseline_initialized": initialized,
             "new_count": 0,
             "state_change_count": 0,
             "latest_event_timestamp": None,
@@ -283,7 +301,6 @@ def get_notification_status(project_uuid, findings):
     if not events:
         return {
             "send_email": False,
-            "baseline_initialized": False,
             "new_count": 0,
             "state_change_count": 0,
             "latest_event_timestamp": None,
@@ -306,7 +323,6 @@ def get_notification_status(project_uuid, findings):
 
     return {
         "send_email": True,
-        "baseline_initialized": False,
         "new_count": new_count,
         "state_change_count": state_change_count,
         "latest_event_timestamp": latest_event_timestamp,
@@ -335,17 +351,22 @@ if __name__ == "__main__":
                 "LATEST_EVENT_TIMESTAMP is not set"
             )
 
-        updated = set_last_notification_time(
+        set_last_notification_time(
             DTRACK_PROJECT_UUID,
             int(LATEST_EVENT_TIMESTAMP),
         )
 
-        if not updated:
-            raise SystemExit(
-                "Could not update the notification timestamp."
-            )
-
         print("CSAF notification timestamp updated.")
+
+    elif NOTIFICATION_ACTION == "initialize":
+        initialized = initialize_notification_baseline(
+            DTRACK_PROJECT_UUID,
+        )
+
+        if initialized:
+            print("CSAF notification baseline initialized.")
+        else:
+            print("CSAF notification baseline already exists.")
 
     else:
         raise SystemExit(

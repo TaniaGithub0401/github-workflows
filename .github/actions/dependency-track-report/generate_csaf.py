@@ -1,10 +1,7 @@
-import hashlib
 import json
 import os
-
 from datetime import datetime, timezone
 from pathlib import Path
-
 from dependency_track import get_analysis, validate_config
 
 INPUT = Path(
@@ -20,18 +17,10 @@ OUTPUT = Path(
     )
 )
 
-SBOM_PATH = Path(
-    os.environ.get(
-        "SBOM_PATH",
-        "docker.cyclonedx.json",
-    )
-)
-
 STATE_MAP = {
     "IN_TRIAGE": "under_investigation",
     "NOT_AFFECTED": "known_not_affected",
     "EXPLOITABLE": "known_affected",
-    "RESOLVED": "fixed",
 }
 
 CSAF_SELF_URL = os.environ.get("CSAF_SELF_URL")
@@ -51,8 +40,6 @@ def build_product_tree(
     project_name,
     project_version,
     product_id,
-    sbom_path,
-    sbom_sha256,
 ):
     return {
         "branches": [
@@ -70,19 +57,6 @@ def build_product_tree(
                                 "product": {
                                     "name": f"{project_name} {project_version}",
                                     "product_id": product_id,
-                                    "product_identification_helper": {
-                                        "hashes": [
-                                            {
-                                                "filename": sbom_path.name,
-                                                "file_hashes": [
-                                                    {
-                                                        "algorithm": "sha256",
-                                                        "value": sbom_sha256,
-                                                    }
-                                                ],
-                                            }
-                                        ]
-                                    },
                                 },
                             }
                         ],
@@ -97,8 +71,6 @@ def build_document_content(
     project_name,
     project_version,
     product_id,
-    sbom_path,
-    sbom_sha256,
     vulnerabilities,
 ):
     document = {
@@ -140,113 +112,28 @@ def build_document_content(
             project_name,
             project_version,
             product_id,
-            sbom_path,
-            sbom_sha256,
         ),
         "vulnerabilities": vulnerabilities,
     }
 
-def sha256_file(path):
-    sha256 = hashlib.sha256()
-
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            sha256.update(chunk)
-
-    return sha256.hexdigest()
-
-
-    
-def load_previous_document():
-    if not OUTPUT.exists():
-        return {}
-
-    try:
-        with OUTPUT.open() as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
-def build_tracking(previous_document, current_content, document_id, now):
-    previous_tracking = (
-        previous_document
-        .get("document", {})
-        .get("tracking", {})
-    )
-
-    previous_version = previous_tracking.get("version")
-
-    previous_content = {
-        "document": {
-            key: value
-            for key, value in previous_document.get("document", {}).items()
-            if key != "tracking"
-        },
-        "product_tree": previous_document.get("product_tree"),
-        "vulnerabilities": previous_document.get("vulnerabilities"),
-    }
-
-    content_changed = current_content != previous_content
-
-    initial_release_date = previous_tracking.get(
-        "initial_release_date",
-        now,
-    )
-
-    if not previous_version:
-        revision_number = "1"
-        revision_history = [
+def build_tracking(document_id, now):
+    return {
+        "current_release_date": now,
+        "id": str(document_id),
+        "initial_release_date": now,
+        "revision_history": [
             {
                 "date": now,
                 "number": "1",
                 "summary": "Initial release",
             }
-        ]
-        current_release_date = now
-
-    elif content_changed:
-        try:
-            revision_number = str(int(previous_version) + 1)
-        except ValueError:
-            revision_number = str(previous_version)
-
-        revision_history = list(
-            previous_tracking.get("revision_history", [])
-        )
-
-        revision_history.append(
-            {
-                "date": now,
-                "number": revision_number,
-                "summary": "Updated vulnerability analysis",
-            }
-        )
-
-        current_release_date = now
-
-    else:
-        revision_number = str(previous_version)
-        revision_history = previous_tracking.get(
-            "revision_history",
-            [],
-        )
-        current_release_date = previous_tracking.get(
-            "current_release_date",
-            now,
-        )
-
-    return {
-        "current_release_date": current_release_date,
-        "id": str(document_id),
-        "initial_release_date": initial_release_date,
-        "revision_history": revision_history,
+        ],
         "status": "draft",
-        "version": revision_number,
+        "version": "1",
     }
 
 
-def apply_in_triage(entry, analysis, product_id, _):
+def apply_in_triage(entry, analysis, _product_id, _vulnerability):
     details = (
         analysis.get("analysisDetails")
         or "The vulnerability is currently under investigation."
@@ -260,19 +147,8 @@ def apply_in_triage(entry, analysis, product_id, _):
         }
     )
 
-    entry["remediations"] = [
-        {
-            "category": "mitigation",
-            "details": (
-                "The vulnerability is currently under investigation. "
-                "No final remediation decision has been made yet."
-            ),
-            "product_ids": [product_id],
-        }
-    ]
 
-
-def apply_not_affected(entry, analysis, product_id, _):
+def apply_not_affected(entry, analysis, _product_id, _vulnerability):
     justification = analysis.get("analysisJustification")
     details = analysis.get("analysisDetails")
 
@@ -287,16 +163,21 @@ def apply_not_affected(entry, analysis, product_id, _):
     if not parts:
         parts.append("No additional analysis details available.")
 
-    entry["threats"] = [
+    entry["notes"].append(
         {
-            "category": "impact",
-            "details": " ".join(parts),
-            "product_ids": [product_id],
+            "category": "details",
+            "title": "Not affected assessment",
+            "text": " ".join(parts),
         }
-    ]
+    )
 
 
-def apply_exploitable(entry, analysis, product_id, vulnerability):
+def apply_exploitable(
+    entry,
+    analysis,
+    product_id,
+    vulnerability,
+):
     details = (
         analysis.get("analysisDetails")
         or "The vulnerability has been assessed as exploitable."
@@ -309,17 +190,6 @@ def apply_exploitable(entry, analysis, product_id, vulnerability):
             "text": details,
         }
     )
-
-    entry["remediations"] = [
-        {
-            "category": "vendor_fix",
-            "details": (
-                "The vulnerability is considered exploitable. "
-                "A fixed version or other remediation should be applied."
-            ),
-            "product_ids": [product_id],
-        }
-    ]
 
     if (
         vulnerability.get("cvssV3BaseScore") is not None
@@ -344,33 +214,10 @@ def apply_exploitable(entry, analysis, product_id, vulnerability):
         ]
 
 
-def apply_resolved(entry, analysis, product_id, _):
-    details = (
-        analysis.get("analysisDetails")
-        or "The vulnerability has been resolved."
-    )
-
-    entry["notes"].append(
-        {
-            "category": "details",
-            "title": "Resolution",
-            "text": details,
-        }
-    )
-
-    entry["remediations"] = [
-        {
-            "category": "vendor_fix",
-            "details": "The vulnerability has been resolved.",
-            "product_ids": [product_id],
-        }
-    ]
-
 STATE_HANDLERS = {
     "IN_TRIAGE": apply_in_triage,
     "NOT_AFFECTED": apply_not_affected,
     "EXPLOITABLE": apply_exploitable,
-    "RESOLVED": apply_resolved,
 }
 
 
@@ -381,16 +228,9 @@ def build_vulnerability_entry(finding, analysis):
     state = analysis.get("analysisState")
 
     if not state or state == "NOT_SET":
-        print(
-            "Skipping finding: no analysis state has been assigned."
-        )
         return None
 
     if state not in STATE_MAP:
-        print(
-            f"Skipping finding: unsupported analysis state {state}."
-
-        )
         return None
 
     product_id = (
@@ -471,27 +311,15 @@ def main():
     project_name = first["component"]["projectName"]
     project_version = first["component"]["projectVersion"]
     product_id = f"{project_name}-{project_version}"
-
-    if not SBOM_PATH.exists():
-        raise SystemExit(f"SBOM file not found: {SBOM_PATH}")
-
-    sbom_sha256 = sha256_file(SBOM_PATH)
     document_id = CSAF_DOCUMENT_ID or f"{project_name}-csaf-vex"
-
-    previous_document = load_previous_document()
-
     document_content = build_document_content(
         project_name,
         project_version,
         product_id,
-        SBOM_PATH,
-        sbom_sha256,
         vulnerabilities,
     )
 
     tracking = build_tracking(
-        previous_document,
-        document_content,
         document_id,
         now,
     )
