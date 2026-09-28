@@ -148,7 +148,12 @@ def apply_in_triage(entry, analysis, _product_id, _vulnerability):
     )
 
 
-def apply_not_affected(entry, analysis, _product_id, _vulnerability):
+def apply_not_affected(
+    entry,
+    analysis,
+    product_id,
+    _vulnerability,
+):
     justification = analysis.get("analysisJustification")
     details = analysis.get("analysisDetails")
 
@@ -161,15 +166,17 @@ def apply_not_affected(entry, analysis, _product_id, _vulnerability):
         parts.append(details)
 
     if not parts:
-        parts.append("No additional analysis details available.")
+        parts.append(
+            "The product has been assessed as not affected."
+        )
 
-    entry["notes"].append(
+    entry["threats"] = [
         {
-            "category": "details",
-            "title": "Not affected assessment",
-            "text": " ".join(parts),
+            "category": "impact",
+            "details": " ".join(parts),
+            "product_ids": [product_id],
         }
-    )
+    ]
 
 
 def apply_exploitable(
@@ -190,6 +197,17 @@ def apply_exploitable(
             "text": details,
         }
     )
+
+    entry["remediations"] = [
+        {
+            "category": "mitigation",
+            "details": (
+                "The vulnerability is known to affect this product. "
+                "Appropriate remediation or mitigation should be evaluated."
+            ),
+            "product_ids": [product_id],
+        }
+    ]
 
     if (
         vulnerability.get("cvssV3BaseScore") is not None
