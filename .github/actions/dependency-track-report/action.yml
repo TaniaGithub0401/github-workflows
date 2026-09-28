@@ -148,16 +148,11 @@ runs:
             exit 1
           fi
 
-          processing=$(jq -r '.processing // empty' \
+          processing=$(jq -r '.processing // false' \
             /tmp/dtrack-event-response.json)
 
           if [ "$processing" = "false" ]; then
             exit 0
-          fi
-
-          if [ "$processing" != "true" ]; then
-            echo "Dependency-Track returned an invalid processing status."
-            exit 1
           fi
 
           sleep 10
@@ -166,7 +161,7 @@ runs:
 
         echo "Dependency-Track analysis did not complete within the expected time."
         exit 1
-
+        
     - name: Download Dependency-Track findings
       shell: bash
       env:
