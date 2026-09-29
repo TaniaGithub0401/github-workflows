@@ -2,3 +2,6 @@
 .pylintrc_allowed_to_fail
 ruff-github-workflows.toml
 ruff-merged.toml
+
+__pycache__/
+*.pyc
