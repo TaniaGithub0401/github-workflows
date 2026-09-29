@@ -31,8 +31,8 @@ inputs:
     required: false
     default: "false"
 
-  email-to:
-    description: "Recipient of CSAF email notifications"
+  email-address:
+    description: "Email address used for CSAF notifications"
     required: false
     default: ""
 
@@ -48,11 +48,11 @@ runs:
       if: inputs.email-notification == 'true'
       shell: bash
       env:
-        EMAIL_TO: ${{ inputs.email-to }}
+        EMAIL_ADDRESS: ${{ inputs.email-address }}
         SMTP_PASSWORD: ${{ inputs.smtp-password }}
       run: |
         if [ -z "$EMAIL_TO" ]; then
-          echo "email-to is required when email notifications are enabled."
+          echo "email-address is required when email notifications are enabled."
           exit 1
         fi
 
@@ -356,10 +356,10 @@ runs:
       env:
         SMTP_SERVER: smtp.mailbox.org
         SMTP_PORT: "587"
-        SMTP_USERNAME: cybersecurity@mundialis.de
+        SMTP_USERNAME: ${{ inputs.email-address }}
         SMTP_PASSWORD: ${{ inputs.smtp-password }}
-        EMAIL_FROM: cybersecurity@mundialis.de
-        EMAIL_TO: ${{ inputs.email-to }}
+        EMAIL_FROM: ${{ inputs.email-address }}
+        EMAIL_TO: ${{ inputs.email-address }}
         PROJECT_NAME: ${{ inputs.project-name }}
         CSAF_FILE: /tmp/csaf-vex.json
         NEW_COUNT: ${{ steps.email-notification.outputs.new-count }}
