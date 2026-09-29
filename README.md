@@ -233,29 +233,43 @@ jobs:
 ## SBOM Vulnerability Scan
 
 The SBOM vulnerability scan workflow generates a CycloneDX SBOM and scans
-dependencies for known vulnerabilities with Grype. The workflow can be used
-with a Dockerfile, a `requirements.txt` file, or a `pyproject.toml` file.
+dependencies for known vulnerabilities with Grype. The workflow supports
+Docker images as well as Python projects using either `requirements.txt`
+or `pyproject.toml`.
 
-For Docker-based projects, Grype scans the SBOM generated from the Docker image.
-For Python projects, a virtual environment is created from either
-`requirements.txt` or `pyproject.toml`. Grype scans the virtual environment
-directly because this provides valid SARIF artifact locations for GitHub Code
-Scanning.
+For Docker-based projects, the SBOM is generated from the built container
+image and scanned with Grype. For Python projects, a virtual environment is
+created from the provided dependency file and scanned directly to provide
+valid SARIF artifact locations for GitHub Code Scanning.
 
-The vulnerability results are uploaded to GitHub Code Scanning using the
-categories `grype-docker` or `grype-python`.
+The vulnerability scan results are uploaded to GitHub Code Scanning using
+the categories `grype-docker` or `grype-python`.
 
 Optionally, the generated SBOM can also be uploaded to Dependency-Track.
-When Dependency-Track integration is enabled, new findings without an existing
-analysis state are documented as `IN_TRIAGE` using CycloneDX VEX. Existing
-manual or previous analysis states are preserved.
+When Dependency-Track integration is enabled, findings without an existing
+analysis state are initialized as `IN_TRIAGE` through a CycloneDX VEX
+document. Existing manual or previous analysis states are preserved.
 
-Based on the Dependency-Track analysis states, the workflow also generates a
-CSAF 2.0 VEX document. The generated CSAF document is validated automatically.
-If no findings are reported, or no findings contain an analysis state that can
-be included in the CSAF document, CSAF generation and validation are skipped.
+Based on the Dependency-Track analysis states, the workflow generates a
+CSAF 2.0 VEX document and validates it automatically. The currently supported
+Dependency-Track analysis states are mapped as follows:
 
-You can use it e.g. like this:
+- `IN_TRIAGE` → `under_investigation`
+- `NOT_AFFECTED` → `known_not_affected`
+- `EXPLOITABLE` → `known_affected`
+
+Findings without a supported analysis state are not included in the CSAF
+document. If no applicable findings are available, CSAF generation and
+validation are skipped.
+
+Optionally, the workflow can send email notifications when new findings are
+detected or when the analysis state of an existing finding changes and a
+CSAF VEX report can be generated. The validated CSAF VEX document is attached
+to the notification email. The timestamp of the last successfully notified
+event is stored as a Dependency-Track project property to prevent duplicate
+notifications.
+
+You can use the workflow for a Docker-based project e.g. like this:
 
 ```yaml
 name: SBOM Vulnerability Scan
@@ -263,11 +277,15 @@ name: SBOM Vulnerability Scan
 on:
   push:
     branches: [ "main" ]
+
   schedule:
     # Check every Monday at 04:36
     - cron: "36 04 * * 1"
+
   release:
     types: [published]
+
+  workflow_dispatch:
 
 jobs:
   sbom-scan:
@@ -276,30 +294,69 @@ jobs:
       security-events: write
 
     uses: mundialis/github-workflows/.github/workflows/sbom-vulnerability-scan.yml@main
+
     with:
       dockerfile: docker/actinia-core-alpine/Dockerfile
-      # requirements: requirements.txt
-      # pyproject: pyproject.toml
-      # additional-packages: "libgdal-dev gdal-bin build-essential"
-
-
       fail-build: false
 
       dependency-track: true
-      dependency-track-url: https://dependency-track.example.com
-      dependency-track-project-name: example-project
-      dependency-track-project-version: latest
+      dependency-track-url: ${{ vars.DEPENDENCY_TRACK_API_URL }}
+      dependency-track-project-name: ${{ github.event.repository.name }}-container
+      dependency-track-project-version: ${{ github.ref_name }}
+
+      email-notification: true
+      email-address: ${{ vars.CYBERSECURITY_EMAIL }}
 
     secrets:
       dependency-track-api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+      smtp-password: ${{ secrets.CYBERSECURITY_EMAIL_APP_PASSWORD }}
 ```
+For a Python project using `pyproject.toml`:
+```yaml
+name: Python SBOM Vulnerability Scan
 
+on:
+  push:
+    branches: [ "main" ]
+
+  schedule:
+    # Check every Monday at 04:36
+    - cron: "36 04 * * 1"
+
+  release:
+    types: [published]
+
+  workflow_dispatch:
+
+jobs:
+  sbom-scan:
+    permissions:
+      contents: read
+      security-events: write
+
+    uses: mundialis/github-workflows/.github/workflows/sbom-vulnerability-scan.yml@main
+
+    with:
+      pyproject: pyproject.toml
+      fail-build: false
+
+      dependency-track: true
+      dependency-track-url: ${{ vars.DEPENDENCY_TRACK_API_URL }}
+      dependency-track-project-name: ${{ github.event.repository.name }}-application
+      dependency-track-project-version: ${{ github.ref_name }}
+
+      email-notification: true
+      email-address: ${{ vars.CYBERSECURITY_EMAIL }}
+
+    secrets:
+      dependency-track-api-key: ${{ secrets.DEPENDENCY_TRACK_API_KEY }}
+      smtp-password: ${{ secrets.CYBERSECURITY_EMAIL_APP_PASSWORD }}
+```
 Provide exactly one of the following inputs:
 
 - `dockerfile`: Path to the Dockerfile.
 - `requirements`: Path to the `requirements.txt` file.
 - `pyproject`: Path to the `pyproject.toml` file.
-
 
 The calling job requires the following permissions:
 
@@ -307,25 +364,66 @@ The calling job requires the following permissions:
 - `security-events: write` to upload the vulnerability results to GitHub Code Scanning.
 
 Optional inputs:
-- `fetch_depth`: Number of commits to fetch during checkout. Use `0` to fetch the full history and tags. Default: `1`.
-- `fail-build`: Set to `true` if the workflow should fail when vulnerabilities above the severity cutoff are found. Default: `false`.
+- `fetch_depth`: Number of commits to fetch during checkout. Use `0` to fetch the full history
+ and tags. Default: `1`.
+- `fail-build`: Set to `true` if the workflow should fail when vulnerabilities above the severity
+ cutoff are found. Default: `false`.
 - `additional-packages`: Space-separated list of additional system packages
-  to install before creating a Python environment.
+  to install before creating a Python environment. For projects requiring
+  GDAL, the required system packages can be provided through this input.
+  The GDAL version in `requirements.txt` should not be pinned to a conflicting
+  fixed version, because the workflow aligns it with the installed system
+  version.
 - `dependency-track`: Enable Dependency-Track integration. Default: `false`.
-- `dependency-track-url`: Dependency-Track base URL. Required when `dependency-track` is enabled.
-- `dependency-track-project-name`: Project name used in Dependency-Track. Required when
-  `dependency-track` is enabled.
-- `dependency-track-project-version`: Project version used in Dependency-Track. Default: `latest`.
+- `dependency-track-url`: Dependency-Track base URL. In mundialis and actinia-org
+  repositories, use the organization variable `DEPENDENCY_TRACK_API_URL`.
 
-When Dependency-Track integration is enabled, the secret `dependency-track-api-key` must also
-be provided by the calling workflow.
+- `dependency-track-project-name`: Project name used in Dependency-Track.
+  The recommended convention is `${{ github.event.repository.name }}-container`
+  for Docker scans and `${{ github.event.repository.name }}-application`
+  for Python scans.
+
+- `dependency-track-project-version`: Project version used in Dependency-Track.
+  The recommended value is `${{ github.ref_name }}` so the project version
+  follows the current branch, tag, or release reference.
+
+- `email-notification`: Enable CSAF email notifications. Requires
+  `dependency-track` to be enabled. Default: `false`.
+
+- `email-address`: Email address used as the SMTP account, sender, and
+  notification recipient. In mundialis and actinia-org repositories, use
+  the organization variable `CYBERSECURITY_EMAIL`.
+
+When Dependency-Track integration is enabled, the secret `dependency-track-api-key` must be 
+provided by the calling workflow.
+
+When email notifications are enabled, `email-address` and the secret `smtp-password` must also 
+be provided. The mundialis and actinia-org organizations provide the following configuration 
+for this purpose:
+
+- `CYBERSECURITY_EMAIL` as an organization variable.
+- `CYBERSECURITY_EMAIL_APP_PASSWORD` as an organization secret.
+
+The caller can pass them to the reusable workflow as follows:
+
+```yaml
+with:
+  email-notification: true
+  email-address: ${{ vars.CYBERSECURITY_EMAIL }}
+
+secrets:
+  smtp-password: ${{ secrets.CYBERSECURITY_EMAIL_APP_PASSWORD }}
+```
 
 The generated Docker or Python SBOM is uploaded as a workflow artifact.
 
-The generated CSAF VEX document is currently generated and validated within the
-workflow and is not uploaded as a workflow artifact.
+The generated CSAF VEX document is validated within the workflow and is not
+uploaded as a workflow artifact. When email notifications are enabled and a
+relevant Dependency-Track event is detected, the validated CSAF document is
+attached to the notification email.
 
-The vulnerability results are available under **Security and quality** → **Code scanning**.
+The vulnerability scan results are available under
+**Security and quality** → **Code scanning**.
 
 ## Generate Third-Party-License list on release
 
