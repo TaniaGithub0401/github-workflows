@@ -51,7 +51,7 @@ runs:
         EMAIL_ADDRESS: ${{ inputs.email-address }}
         SMTP_PASSWORD: ${{ inputs.smtp-password }}
       run: |
-        if [ -z "$EMAIL_TO" ]; then
+        if [ -z "$EMAIL_ADDRESS" ]; then
           echo "email-address is required when email notifications are enabled."
           exit 1
         fi
