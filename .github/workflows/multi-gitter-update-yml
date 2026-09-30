@@ -1,0 +1,26 @@
+name: Update files in forks
+
+on:
+  workflow_dispatch:
+
+jobs: 
+  update-forks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository 
+        uses: actions/Checkout@v4
+        
+      - name: Install multi-gitter
+        run: |
+          curl -s https://raw.githubusercontent.com/lindell/multi-gitter/master/install.sh | sh
+
+      - name: Update repositories
+        env:
+          GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
+        run: |
+          multi-gitter run ./scripts/update-files.sh \
+            -R TaniaGithub0401/actinia-core \
+            -R TaniaGithub0401/actinia-module-plugin \
+            -m "Update generated files" \
+            -B automated-file-update
