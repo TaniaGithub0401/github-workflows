@@ -9,7 +9,7 @@ jobs:
 
     steps:
       - name: Checkout repository 
-        uses: actions/Checkout@v4
+        uses: actions/checkout@v4
         
       - name: Install multi-gitter
         run: |
@@ -19,7 +19,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
         run: |
-          multi-gitter run ./scripts/update-files.sh \
+          multi-gitter run .github/scripts/update_files.sh \
             -R TaniaGithub0401/actinia-core \
             -R TaniaGithub0401/actinia-module-plugin \
             -m "Update generated files" \
