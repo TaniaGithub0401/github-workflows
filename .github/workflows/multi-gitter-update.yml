@@ -24,9 +24,9 @@ jobs:
         run: |
           multi-gitter run "$GITHUB_WORKSPACE/.github/scripts/update_files.sh" \
             -R TaniaGithub0401/actinia-core \
-            -R TaniaGithub0401/actinia-module-plugin \
-            -m "Update generated files" \
-            -B automated-file-update \
+            --base-branch test-email-notification \
+            -m "Test updating existing workflow with multi-gitter" \
+            -B test-multi-gitter-workflow-update  \
             --author-name "TaniaGithub0401" \
             --author-email "tania_93xime@hotmail.com" \
             --log-level=debug

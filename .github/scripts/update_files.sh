@@ -2,14 +2,15 @@
 
 set -euo pipefail
 
-FILE=".github/multi-gitter-test.txt"
+FILE=".github/workflows/python-sbom-vulnerability-scan.yml"
 
-mkdir -p .github
+if [ ! -f "$FILE" ]; then
+    echo "File not found: $FILE"
+    exit 0
+fi
 
-cat > "$FILE" <<'EOF'
-This file was created automatically with multi-gitter.
-
-It is used to test repository-wide file updates.
-EOF
+sed -i \
+  's/dependency-track-project-version: latest/dependency-track-project-version: test-multi-gitter/' \
+  "$FILE"
 
 echo "Updated: $FILE"
