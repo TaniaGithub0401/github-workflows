@@ -22,8 +22,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
         run: |
-          multi-gitter run .github/scripts/update_files.sh \
+          multi-gitter run "$GITHUB_WORKSPACE/.github/scripts/update_files.sh" \
             -R TaniaGithub0401/actinia-core \
             -R TaniaGithub0401/actinia-module-plugin \
             -m "Update generated files" \
-            -B automated-file-update
+            -B automated-file-update \
+            --log-level=debug
