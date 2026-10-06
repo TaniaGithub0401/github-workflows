@@ -3,7 +3,7 @@ name: Update files in forks
 on:
   workflow_dispatch:
 
-jgit obs: 
+jobs: 
   update-forks:
     runs-on: ubuntu-latest
 
