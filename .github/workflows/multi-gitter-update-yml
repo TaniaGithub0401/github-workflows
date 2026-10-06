@@ -1,6 +1,9 @@
 name: Update files in forks
 
 on:
+  push:
+    branches:
+      - try-multi-gitter
   workflow_dispatch:
 
 jobs: 
