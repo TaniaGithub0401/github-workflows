@@ -27,4 +27,6 @@ jobs:
             -R TaniaGithub0401/actinia-module-plugin \
             -m "Update generated files" \
             -B automated-file-update \
+            --author-name "TaniaGithub0401" \
+            --author-email "tania_93xime@hotmail.com" \
             --log-level=debug
