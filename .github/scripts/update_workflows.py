@@ -19,12 +19,45 @@ def replace_once(content, old, new, filename):
 
 
 def update_python_publish(content):
-    # Keep id-token: write until OIDC requirements are verified.
-    return replace_once(
-        content,
-        "  contents: read\n  id-token: write",
-        "  contents: write\n  id-token: write",
-        "python-publish.yml",
+    filename = "python-publish.yml"
+
+    old_permissions = (
+        "permissions:\n"
+        "  contents: read\n"
+        "  id-token: write"
+    )
+
+    new_permissions = (
+        "permissions:\n"
+        "  contents: write\n"
+        "  id-token: write"
+    )
+
+    # Case 1: Permissions already updated
+    if "  contents: write" in content:
+        print(f"  Already updated: {filename}")
+        return content
+
+    # Case 2: Existing permissions need updating
+    if old_permissions in content:
+        return content.replace(
+            old_permissions, new_permissions, 1
+        )
+
+    # Case 3: No permissions defined
+    if not re.search(r"(?m)^permissions:", content):
+        if not re.search(r"(?m)^jobs:", content):
+            raise ValueError(f"Jobs section not found in {filename}")
+
+        return re.sub(
+            r"(?m)^jobs:",
+            "permissions:\n  contents: write\n\njobs:",
+            content,
+            count=1,
+        )
+
+    raise ValueError(
+        f"Unexpected permissions configuration in {filename}"
     )
 
 
