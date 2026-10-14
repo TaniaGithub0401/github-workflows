@@ -30,5 +30,4 @@ jobs:
             -B update-release-workflow-permissions \
             --author-name "TaniaGithub0401" \
             --author-email "tania_93xime@hotmail.com" \
-            --dry-run \
             --log-level=debug
