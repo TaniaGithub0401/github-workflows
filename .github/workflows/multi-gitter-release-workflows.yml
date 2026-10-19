@@ -23,8 +23,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
         run: |
           multi-gitter run "python3 $GITHUB_WORKSPACE/.github/scripts/update_workflows.py" \
+            -R actinia-org/actinia-grassdata-management-plugin \
             -R actinia-org/actinia-metadata-plugin \
+            -R actinia-org/actinia-tiling-plugin \
             -R actinia-org/actinia-api \
+            -R actinia-org/actinia-rest-lib \
+            -R actinia-org/actinia-processing-lib \
+            -R actinia-org/actinia-core \
             --base-branch main \
             --fork \
             --git-type cmd \
