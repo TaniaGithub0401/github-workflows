@@ -1,6 +1,9 @@
 name: Update actinia release workflows
 
 on:
+  push:
+    branches:
+      - update-release-workflows
   workflow_dispatch:
 
 jobs:
