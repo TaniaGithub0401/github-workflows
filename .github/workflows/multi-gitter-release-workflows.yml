@@ -1,10 +1,6 @@
-
 name: Update actinia release workflows
 
 on:
-  push:
-    branches:
-      - update-release-workflows
   workflow_dispatch:
 
 jobs:
@@ -24,13 +20,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
         run: |
           multi-gitter run "python3 $GITHUB_WORKSPACE/.github/scripts/update_workflows.py" \
-            -R TaniaGithub0401/actinia-core \
-            -R TaniaGithub0401/actinia-grassdata-management-plugin \
+            -R actinia-org/actinia-grassdata-management-plugin \
+            -R actinia-org/actinia-metadata-plugin \
+            -R actinia-org/actinia-tiling-plugin \
+            -R actinia-org/actinia-api \
+            -R actinia-org/actinia-rest-lib \
+            -R actinia-org/actinia-processing-lib \
+            -R actinia-org/actinia-core \
             --base-branch main \
+            --fork \
+            --dry-run \
             -m "Update workflow permissions and Dependency-Track configuration" \
             --pr-title "Update workflow permissions and Dependency-Track configuration" \
             --pr-body "Update GitHub Actions permissions and configure Dependency-Track, CSAF, and email notifications where needed. Remove unnecessary id-token permissions." \
-            -B test-release-workflow-updates \
-            --author-name "TaniaGithub0401" \
-            --author-email "tania_93xime@hotmail.com" \
+            -B update-release-permissions-dtrack \
+            --author-name "github-actions[bot]" \
+            --author-email "41898282+github-actions[bot]@users.noreply.github.com" \
             --log-level=debug
