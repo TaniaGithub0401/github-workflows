@@ -32,7 +32,6 @@ jobs:
             -R actinia-org/actinia-core \
             --base-branch main \
             --fork \
-            --dry-run \
             -m "Update workflow permissions and Dependency-Track configuration" \
             --pr-title "Update workflow permissions and Dependency-Track configuration" \
             --pr-body "Update GitHub Actions permissions and configure Dependency-Track, CSAF, and email notifications where needed. Remove unnecessary id-token permissions." \
