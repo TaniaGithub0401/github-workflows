@@ -1,3 +1,4 @@
+
 name: Update actinia release workflows
 
 on:
@@ -6,28 +7,31 @@ on:
       - update-release-workflows
   workflow_dispatch:
 
-jobs: 
+jobs:
   update-workflows:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository 
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Install Multi-Gitter
         run: |
-          curl -s https://raw.githubusercontent.com/lindell/multi-gitter/master/install.sh | sh
+          curl -fsSL https://raw.githubusercontent.com/lindell/multi-gitter/master/install.sh | sh
 
-      
       - name: Update repositories
         env:
           GITHUB_TOKEN: ${{ secrets.MULTI_GITTER_TOKEN }}
         run: |
           multi-gitter run "python3 $GITHUB_WORKSPACE/.github/scripts/update_workflows.py" \
+            -R TaniaGithub0401/actinia-core \
             -R TaniaGithub0401/actinia-grassdata-management-plugin \
             --base-branch main \
             -m "Update workflow permissions and Dependency-Track configuration" \
-            -B update-release-workflow-permissions \
+            --pr-title "Update workflow permissions and Dependency-Track configuration" \
+            --pr-body "Update GitHub Actions permissions and configure Dependency-Track, CSAF, and email notifications where needed. Remove unnecessary id-token permissions." \
+            -B test-release-workflow-updates \
             --author-name "TaniaGithub0401" \
             --author-email "tania_93xime@hotmail.com" \
+            --dry-run \
             --log-level=debug
