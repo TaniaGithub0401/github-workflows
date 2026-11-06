@@ -1,9 +1,9 @@
-FROM osgeo/grass-gis:releasebranch_8_4-alpine
+FROM osgeo/grass-gis:main-alpine
 
 ARG ADDON_NAME
 ARG GITHUB_REPOSITORY
 
-RUN apk add gcc make python3-dev musl-dev linux-headers
+RUN apk add gcc linux-headers make musl-dev pandoc python3-dev
 
 WORKDIR /src
 COPY . /src
@@ -19,7 +19,7 @@ RUN export VERSION=$(python -c \
 RUN test -e requirements.txt && pip3 install -r requirements.txt || echo "No requirements.txt"
 
 # Compile GRASS GIS addon
-RUN grass --tmp-location XY --exec g.extension extension=${ADDON_NAME} url=. prefix=build --verbose
+RUN grass --tmp-project XY --exec g.extension extension=${ADDON_NAME} url=. prefix=build --verbose
 RUN mv build/docs/html/${ADDON_NAME}.html build/docs/html/index.html
 
 # Reset URL (for multi-addon in all html files)
