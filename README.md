@@ -242,9 +242,6 @@ image and scanned with Grype. For Python projects, a virtual environment is
 created from the provided dependency file and scanned directly to provide
 valid SARIF artifact locations for GitHub Code Scanning.
 
-The vulnerability scan results are uploaded to GitHub Code Scanning using
-the categories `grype-docker` or `grype-python`.
-
 Optionally, the generated SBOM can also be uploaded to Dependency-Track.
 When Dependency-Track integration is enabled, findings without an existing
 analysis state are initialized as `IN_TRIAGE` through a CycloneDX VEX
@@ -299,7 +296,7 @@ jobs:
     with:
       dockerfile: docker/actinia-core-alpine/Dockerfile
       fail-build: false
-
+      
       dependency-track: true
       dependency-track-url: ${{ vars.DEPENDENCY_TRACK_API_URL }}
       dependency-track-project-name: ${{ github.event.repository.name }}-container
@@ -319,7 +316,7 @@ For a Python project using `pyproject.toml` or `requirements.txt`, the `with` se
 with:
   pyproject: pyproject.toml
   fail-build: false
-
+  
   dependency-track: true
   dependency-track-url: ${{ vars.DEPENDENCY_TRACK_API_URL }}
   dependency-track-project-name: ${{ github.event.repository.name }}-application
@@ -329,6 +326,15 @@ with:
   email-notification: true
   email-address: ${{ vars.CYBERSECURITY_EMAIL }}
 ```
+For repositories where GitHub Code Scanning is not available, the GitHub
+Security upload can be disabled while still using Dependency-Track:
+
+```yaml
+with:
+  github-security: false
+  dependency-track: true
+```
+
 Provide exactly one of the following inputs:
 
 - `dockerfile`: Path to the Dockerfile.
@@ -338,13 +344,16 @@ Provide exactly one of the following inputs:
 The calling job requires the following permissions:
 
 - `contents: read` to check out the repository.
-- `security-events: write` to upload the vulnerability results to GitHub Code Scanning.
+- `security-events: write` is required when `github-security` is enabled to upload
+  vulnerability results to GitHub Code Scanning.
 
 Optional inputs:
 - `fetch_depth`: Number of commits to fetch during checkout. Use `0` to fetch the full history
  and tags. Default: `1`.
 - `fail-build`: Set to `true` if the workflow should fail when vulnerabilities above the severity
  cutoff are found. Default: `false`.
+- `github-security`: Upload vulnerability scan results to GitHub Security. Default: `true`.
+   Set to `false` for repositories where GitHub Code Scanning is not available.
 - `additional-packages`: Space-separated list of additional system packages
   to install before creating a Python environment. For projects requiring
   GDAL, the required system packages can be provided through this input.
@@ -400,9 +409,6 @@ The generated CSAF VEX document is validated within the workflow and is not
 uploaded as a workflow artifact. When email notifications are enabled and a
 relevant Dependency-Track event is detected, the validated CSAF document is
 attached to the notification email.
-
-The vulnerability scan results are available under
-**Security and quality** → **Code scanning**.
 
 ## Generate Third-Party-License list on release
 
