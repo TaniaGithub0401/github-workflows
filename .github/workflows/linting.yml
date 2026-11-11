@@ -119,14 +119,22 @@ jobs:
         pylint --version
     - name: Configure Pylint
       if: ${{ hashFiles('.pylintrc') == '' }}
+      env:
+        WORKFLOW_SHA: ${{ job.workflow_sha }}
       run: |
-        echo ".pylintrc does not exists. Will be downloaded."
-        wget https://raw.githubusercontent.com/mundialis/github-workflows/main/linting-config-examples/.pylintrc
+        echo ".pylintrc does not exist. Will be downloaded."
+        wget -q \
+          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc" \
+          -O .pylintrc
     - name: Configure Pylint - allowed to fail
       if: ${{ hashFiles('.pylintrc_allowed_to_fail') == '' }}
+      env:
+        WORKFLOW_SHA: ${{ job.workflow_sha }}
       run: |
-        echo ".pylintrc_allowed_to_fail does not exists. Will be downloaded."
-        wget https://raw.githubusercontent.com/mundialis/github-workflows/main/linting-config-examples/.pylintrc_allowed_to_fail
+        echo ".pylintrc_allowed_to_fail does not exist. Will be downloaded."
+        wget -q \
+          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc_allowed_to_fail" \
+          -O .pylintrc_allowed_to_fail
     - name: Lint with Pylint
       run: |
         pylint .
@@ -171,9 +179,13 @@ jobs:
         pip3 install ruff==${{ inputs.ruff-version }} toml-union
         ruff --version
     - name: Configure ruff
+      env:
+        WORKFLOW_SHA: ${{ job.workflow_sha }}
       run: |
         echo "Download ruff.toml..."
-        wget https://raw.githubusercontent.com/mundialis/github-workflows/main/linting-config-examples/ruff.toml -O ruff-github-workflows.toml
+        wget -q \
+          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/ruff.toml" \
+          -O ruff-github-workflows.toml
     - name: Merge ruff config
       run: |
         # Merge shared config with local one. Also works if no ruff.toml exists.
