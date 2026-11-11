@@ -141,7 +141,7 @@ jobs:
         run: |
           set -euo pipefail
           wget -q \
-            "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/.github/scripts/merge-licenses.py" \
+            "https://raw.githubusercontent.com/mundialis/github-workflows/${WORKFLOW_SHA}/.github/scripts/merge-licenses.py" \
             -O merge-licenses.py
           python3 merge-licenses.py pip-licenses.json sbom.json THIRD_PARTY_LICENSES.json
 
@@ -189,6 +189,6 @@ jobs:
         run: |
           set -euo pipefail
           wget -q \
-            "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/.github/scripts/scan-licenses.py" \
+            "https://raw.githubusercontent.com/mundialis/github-workflows/${WORKFLOW_SHA}/.github/scripts/scan-licenses.py" \
             -O scan-licenses.py
           python3 scan-licenses.py
