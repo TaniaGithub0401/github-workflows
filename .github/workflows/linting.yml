@@ -124,7 +124,7 @@ jobs:
       run: |
         echo ".pylintrc does not exist. Will be downloaded."
         wget -q \
-          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc" \
+          "https://raw.githubusercontent.com/mundialis/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc" \
           -O .pylintrc
     - name: Configure Pylint - allowed to fail
       if: ${{ hashFiles('.pylintrc_allowed_to_fail') == '' }}
@@ -133,7 +133,7 @@ jobs:
       run: |
         echo ".pylintrc_allowed_to_fail does not exist. Will be downloaded."
         wget -q \
-          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc_allowed_to_fail" \
+          "https://raw.githubusercontent.com/mundialis/github-workflows/${WORKFLOW_SHA}/linting-config-examples/.pylintrc_allowed_to_fail" \
           -O .pylintrc_allowed_to_fail
     - name: Lint with Pylint
       run: |
@@ -184,7 +184,7 @@ jobs:
       run: |
         echo "Download ruff.toml..."
         wget -q \
-          "https://raw.githubusercontent.com/TaniaGithub0401/github-workflows/${WORKFLOW_SHA}/linting-config-examples/ruff.toml" \
+          "https://raw.githubusercontent.com/mundialis/github-workflows/${WORKFLOW_SHA}/linting-config-examples/ruff.toml" \
           -O ruff-github-workflows.toml
     - name: Merge ruff config
       run: |
