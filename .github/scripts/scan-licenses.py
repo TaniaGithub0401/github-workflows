@@ -1,4 +1,13 @@
+#!/usr/bin/env python3
+"""Scan THIRD_PARTY_LICENSES.json for UNKNOWN, GPL, AGPL, and LGPL licenses.
 
+Read the generated license report and identify entries containing
+unknown or GPL-related licenses. Generate GitHub Actions warnings
+for matching entries and exit with code 1 if any are found.
+
+Usage:
+    python3 scan-licenses.py
+"""
 import json
 import sys
 from pathlib import Path
