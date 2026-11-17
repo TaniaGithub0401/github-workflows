@@ -1,0 +1,52 @@
+name: Jupyter Notebook Security Scan
+
+description: Validate and statically scan Jupyter notebooks without executing them
+
+inputs:
+  notebook-path:
+    description: "Path to a Jupyter notebook or directory containing notebooks"
+    required: true
+
+  detect-secrets-baseline:
+    description: "Path to a detect-secrets baseline file"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install notebook scan tools
+      shell: bash
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install nbconvert bandit detect-secrets
+
+    - name: Check notebook outputs
+      shell: bash
+      run: |
+        python3 "$GITHUB_ACTION_PATH/check-notebooks.py" \
+          outputs \
+          "${{ inputs.notebook-path }}"
+
+    - name: Convert notebooks to Python
+      shell: bash
+      run: |
+        rm -rf .scanned
+
+        python3 "$GITHUB_ACTION_PATH/check-notebooks.py" \
+          convert \
+          "${{ inputs.notebook-path }}" \
+          .scanned
+
+    - name: Scan notebook code for secrets
+      shell: bash
+      run: |
+        python3 "$GITHUB_ACTION_PATH/check-notebooks.py" \
+          secrets \
+          .scanned \
+          "${{ inputs.detect-secrets-baseline }}"
+
+    - name: Scan notebook code
+      shell: bash
+      run: |
+        bandit -r .scanned -ll -ii
