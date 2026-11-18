@@ -335,6 +335,8 @@ runs:
 
         if [ "$(jq -r '.isValid' /tmp/csaf-validation-result.json)" != "true" ]; then
           echo "CSAF VEX validation failed."
+          echo "Full validator response:"
+          jq . /tmp/csaf-validation-result.json
           exit 1
         fi
 
