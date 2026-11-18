@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
+"""Utility functions for validating and statically scanning Jupyter notebooks.
 
+The script checks notebooks for saved outputs, converts code cells to Python
+without executing them, and scans the converted code for potential secrets.
+"""
 import json
 import subprocess
 import sys
