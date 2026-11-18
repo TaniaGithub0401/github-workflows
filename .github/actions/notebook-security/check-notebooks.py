@@ -183,38 +183,11 @@ def check_secrets(path, baseline=None):
     )
 
 
-def check_git_history(path):
-    path = Path(path)
-
-    if not path.exists():
-        raise SystemExit(f"Repository path does not exist: {path}")
-
-    result = subprocess.run(
-        [
-            "betterleaks",
-            "detect",
-            "--source",
-            str(path),
-            "--redact",
-        ],
-        check=False,
-    )
-
-    if result.returncode != 0:
-        print(
-            "Potential secrets were detected "
-            "in Git history."
-        )
-        raise SystemExit(1)
-
-    print("No potential secrets detected in Git history.")
-
-
 def main():
     if len(sys.argv) not in (3, 4):
         raise SystemExit(
             "Usage: check-notebooks.py "
-            "<outputs|convert|secrets|history> <path> [argument]"
+            "<outputs|convert|secrets> <path> [argument]"
         )
 
     mode = sys.argv[1]
@@ -235,13 +208,10 @@ def main():
     elif mode == "secrets":
         check_secrets(path, argument)
 
-    elif mode == "history":
-        check_git_history(path)
-
     else:
         raise SystemExit(
             f"Unknown mode: {mode}. "
-            "Use 'outputs', 'convert','secrets', or 'history'."
+            "Use 'outputs', 'convert', or 'secrets'."
         )
 
 
